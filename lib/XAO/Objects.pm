@@ -35,7 +35,7 @@ sub new ($%);
 # Module version.
 #
 use vars qw($VERSION);
-($VERSION)=(q$Id: Objects.pm,v 1.5 2001/11/13 01:42:37 am Exp $ =~ /(\d+\.\d+)/);
+($VERSION)=(q$Id: Objects.pm,v 1.7 2002/02/05 03:26:29 am Exp $ =~ /(\d+\.\d+)/);
 
 ##
 # Loads object into memory.
@@ -78,7 +78,9 @@ sub load (@) {
             throw XAO::E::Objects "load - no sitename given for Config object";
     }
     else {
-        $sitename=XAO::Projects::get_current_project_name() || '';
+        $sitename=XAO::Projects::get_current_project_name() ||
+                  $args->{sitename} ||
+                  '';
     }
 
     ##
@@ -111,7 +113,7 @@ sub load (@) {
                   "load - package name is not XAO::DO::$objname in $objfile";
             $2 eq 'XAO::DO' ||
                 eprint "Old style package name in $objfile - change to XAO::DO::$objname";
-            eval "\n# line 1 \"$objfile\"\n" . $text;
+            eval "\n# line 2 \"$objfile\"\n" . $text;
             throw XAO::E::Objects
                   "load - error loading $objname ($objfile) -- $@" if $@;
             $objref="XAO::DO::${sitename}::${objname}";
