@@ -6,7 +6,7 @@ use ExtUtils::Manifest;
 ##
 # This is the version for XAO::Base, should be updated manually.
 #
-my $version='1.01';
+my $version='1.02';
 
 ##
 # Trying to find out current configuration. If it is saved in file -
@@ -120,6 +120,11 @@ WriteMakefile(
 
 sub MY::postamble
 { <<EOT;
+
+config::	README
+
+README: Base.pod
+	pod2text Base.pod > README
 
 install::
 	[ -d $homedir ] || mkdir $homedir && chmod 755 $homedir
