@@ -20,7 +20,6 @@ functions.
 ###############################################################################
 package XAO::Utils;
 use strict;
-require 5.6.0;
 use XAO::Errors qw(XAO::Utils);
 
 ##
@@ -36,9 +35,10 @@ sub t2hf ($);
 sub t2hq ($);
 sub get_args (@);
 sub merge_refs (@);
+sub fround ($$);
 
 use vars qw($VERSION);
-($VERSION)=(q$Id: Utils.pm,v 1.5 2002/01/03 02:50:01 am Exp $ =~ /(\d+\.\d+)/);
+($VERSION)=(q$Id: Utils.pm,v 1.11 2003/09/03 06:31:45 am Exp $ =~ /(\d+\.\d+)/);
 
 ###############################################################################
 # Export control
@@ -52,6 +52,7 @@ require Exporter;
     debug => [qw(dprint eprint)],
     html => [qw(t2ht t2hq t2hf)],
     keys => [qw(generate_key repair_key)],
+    math => [qw(fround)],
     none => [],
 );
 @EXPORT=(
@@ -63,6 +64,7 @@ require Exporter;
     @{$EXPORT_TAGS{debug}},
     @{$EXPORT_TAGS{html}},
     @{$EXPORT_TAGS{keys}},
+    @{$EXPORT_TAGS{math}},
 );
 
 ###############################################################################
@@ -296,13 +298,14 @@ Escapes text to be be included into URL parameters.
 
 All symbols from 0x0 to 0x1f and from 0x80 to 0xff as well as the
 symbols from [&?<>"=%#+] are substituted to %XX hexadecimal codes
-interpreted by all standard CGI tools.
+interpreted by all standard CGI tools. The same conversion may be used
+for URLs themselves.
 
 =cut
 
 sub t2hq ($) {
     my $text=shift;
-    $text=~s/([\x00-\x20\x80-\xff\&\?<>"=%#+])/"%".unpack("H2",$1)/sge;
+    $text=~s/([\x00-\x20\x80-\xff\&\?<>;"=%#+])/"%".unpack("H2",$1)/sge;
     $text;
 }
 
@@ -323,7 +326,7 @@ sub t2ht ($) {
     $text=~s/&/&amp;/sg;
     $text=~s/</&lt;/sg;
     $text=~s/>/&gt;/sg;
-    $text;
+    return $text;
 }
 
 ###############################################################################
@@ -371,6 +374,10 @@ Now my_method could be called in either way:
 
  $self->my_method( { mode => 'fubar' } );
 
+Or even:
+
+ $self->my_method( { mode => 'fubar' }, { submode => 'barfoo' });
+
  sub other_method ($%) {
      my $self=shift;
      my $args=get_args(\@_);
@@ -388,28 +395,33 @@ Now my_method could be called in either way:
  }
 
 Note, that in the above examples you could also use "get_args(@_)"
-instead of "get_args(\@_)". That's fine and that would work, but
+instead of "get_args(\@_)". That's fine and that will work, but
 slower.
 
 =cut
 
 sub get_args (@) {
-    my $arr=ref($_[0]) eq "ARRAY" ? $_[0] : \@_;
-    my $args;
-    if(@{$arr} == 1) {
-        $args=$arr->[0];
-        ref($args) eq "HASH" ||
-            throw XAO::E::Utils "get_args - not a HASH in arguments ($arr->[0])";
+    my $arr=ref($_[0]) eq 'ARRAY' ? $_[0] : \@_;
+
+    if(!@$arr) {
+        return { };
     }
-    elsif(! (scalar(@{$arr}) % 2)) {
-        my %a=@{$arr};
-        $args=\%a;
+    elsif(@$arr == 1) {
+        my $args=$arr->[0];
+        ref($args) eq 'HASH' ||
+            throw XAO::E::Utils "get_args - single argument not a hash ref";
+        return $args;
+    }
+    elsif(ref($arr->[0]) eq 'HASH') {
+        return merge_refs(@$arr);
+    }
+    elsif(!ref($arr->[0]) && (scalar(@$arr)%2)==0) {
+        my %a=@$arr;
+        return \%a;
     }
     else {
         throw XAO::E::Utils "get_args - unparsable arguments";
     }
-    $args={} unless $args;
-    $args;
 }
 
 ###############################################################################
@@ -436,6 +448,50 @@ sub merge_refs (@) {
         @hash{keys %$ref}=values %$ref;
     }
     \%hash;
+}
+
+###############################################################################
+
+=back
+
+=head2 MATH
+
+Utility functions in this group can be imported by using 'math' tag:
+
+ use XAO::Utils qw(:math);
+
+Here is the list of functions available:
+
+=over
+
+=cut
+
+###############################################################################
+
+=item fround ($$)
+
+Rounds a floating point number according to the given
+precision.
+
+Precision is given as X in 1/X, for instance to round to two digits
+after decimal point use precision 100.
+
+Examples:
+
+ fround(0.25,10)        => 0.3
+ fround(0.01234,1000)   => 0.012
+
+=cut
+
+sub fround ($$) {
+    my ($num,$prec)=@_;
+    $prec>0 || throw XAO::E::Utils "fround - no precision given";
+    if($num<0) {
+        return -(int((-$num+1/$prec/2)*$prec))/$prec;
+    }
+    else {
+        return (int(($num+1/$prec/2)*$prec))/$prec;
+    }
 }
 
 ###############################################################################

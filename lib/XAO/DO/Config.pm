@@ -48,19 +48,72 @@ package XAO::DO::Config;
 use strict;
 use XAO::Utils;
 use XAO::Objects;
+use XAO::Cache;
 
 use base XAO::Objects->load(objname => 'Atom');
 
 use vars qw($VERSION);
-($VERSION)=(q$Id: Config.pm,v 1.6 2002/02/12 20:25:49 am Exp $ =~ /(\d+\.\d+)/);
+($VERSION)=(q$Id: Config.pm,v 1.10 2003/08/12 01:16:13 am Exp $ =~ /(\d+\.\d+)/);
 
 ###############################################################################
 # Prototypes
 #
+sub cache ($%);
 sub cleanup ($);
 sub embed ($%);
 sub embedded ($$);
 sub new ($);
+
+###############################################################################
+
+=item cache (%)
+
+Creates or retrieves a cache for use in various other XAO objects.
+Arguments are directly passed to XAO::Cache's new() method (see
+L<XAO::Cache>) with the exception of 'name' argument which is used to
+identify the requested cache.
+
+If a cache with that name was already initialized before it
+is not re-created, but previously created version is returned
+instead.
+
+B<Note:> Retrieve method SHOULD NOT rely on any locally available
+lexical variables, they will be taken from whatever scope existed first
+time cache() was called!
+
+Example:
+
+ my $cache=$self->cache(
+     name        => 'fubar',
+     retrieve    => \&real_retrieve,
+     coords      => ['foo','bar'],
+     expire      => 60
+ );
+
+Caches are kept between executions in mod_perl environment.
+
+=cut
+
+sub cache ($%) {
+    my $self=shift;
+    my $args=get_args(\@_);
+
+    my $name=$args->{name} ||
+        throw $self "cache - no 'name' argument";
+
+    my $cache_list=$self->{cache_list};
+    if(! $cache_list) {
+        $cache_list=$self->{cache_list}={};
+    }
+
+    my $cache=$cache_list->{$name};
+    if(! $cache) {
+        $cache=XAO::Cache->new($args);
+        $cache_list->{$name}=$cache;
+    }
+
+    return $cache;
+}
 
 ###############################################################################
 
@@ -127,6 +180,11 @@ sub embed ($%) {
         my $obj=$args->{$name};
         $obj->can('embeddable_methods') ||
             throw $self "embed - object (".ref($obj).") does not have embeddable_methods() method";
+
+        ##
+        # Setting base for the object we embed, it might need it
+        #
+        $obj->set_base_config($self) if $obj->can('set_base_config');
 
         ##
         # Building perl code for proxy methods definitions

@@ -1,4 +1,11 @@
+1.05 - 12-Nov-2003
+    * XAO::Utils - get_args works as merge_refs on multiple hash refs
+    * XAO::TestUtils - new module, automated testing for XAO packages
+    * XAO::DO::Embeddable - optional base class for embeddable configs
+    * XAO::Utils - fround() function added
+
 1.04 - 9-Aug-2002
+    * XAO::Utils - t2hq() now escapes semicolon
     * Minor changes to support XAO::Web and XAO::FS improvements
 
 1.03 - 18-Mar-2002

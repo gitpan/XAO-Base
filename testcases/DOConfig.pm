@@ -60,6 +60,9 @@ sub test_project {
     $self->assert($config->get('LocalConfig') == 1,
                   "Initialization did not make it to the local config");
 
+    $self->assert(ref($config->check) eq ref($config),
+                  "Error using base_config() method");
+
     $config->cleanup();
 }
 
@@ -99,6 +102,51 @@ sub test_error {
 
     $self->assert($errstr eq '',
                   $errstr);
+}
+
+sub test_cache {
+    my $self=shift;
+
+    my $config=XAO::Objects->new(objname => 'Config', baseobj => 1);
+    $self->assert(ref($config),
+                  "Can't get config");
+
+    ##
+    # Define cache
+    #
+    $config->cache(
+        name        => 'test',
+        coords      => [ 'foo' ],
+        retrieve    => sub {
+            my $args=get_args(\@_);
+            return '>' . $args->{foo} . '<';
+        },
+    );
+
+    ##
+    # Now pretend that it is called someplace else with different
+    # parameters. They should be ignored.
+    #
+    my $cache=$config->cache(
+        name        => 'test',
+        coords      => [ 'bar' ],
+        retrieve    => sub {
+            return 'BAD';
+        },
+    );
+    my $got=$cache->get(foo => '123');
+    my $expect='>123<';
+    $self->assert($got eq $expect,
+                  "Got wrong data from the cache ($got), expected $expect");
+
+    ##
+    # Now just giving the name
+    #
+    $cache=$config->cache(name => 'test');
+    $got=$cache->get(foo => 'qwe');
+    $expect='>qwe<';
+    $self->assert($got eq $expect,
+                  "Got wrong data from the cache ($got), expected $expect");
 }
 
 1;

@@ -6,7 +6,7 @@ use ExtUtils::Manifest;
 ##
 # This is the version for XAO::Base, should be updated manually.
 #
-my $version='1.04';
+my $version='1.05';
 
 ##
 # Trying to find out current configuration. If it is saved in file -
@@ -87,7 +87,7 @@ if(!$config_version || $config_version ne $version) {
 #
 my %man3pods;
 foreach my $n (keys %{ExtUtils::Manifest::maniread()}) {
-    next unless $n =~ '^(Base).pod$' ||
+    next unless $n =~ '^(\w+)\.(pm|pod)$' ||
                 $n =~ '^lib/XAO/(.*)\.(pm|pod)$';
     my $man=$1;
     $man=~s/\/+/::/g;
@@ -114,7 +114,7 @@ WriteMakefile(
         'Test::Unit' => '0.14',
     },
     'PL_FILES'      => {
-        'Base.PL' => '$(INST_LIB)/XAO/Base.pm',
+        'BaseConfig.PL' => '$(INST_LIB)/XAO/BaseConfig.pm',
     },
     'MAN3PODS'      => \%man3pods,
 );
@@ -124,8 +124,8 @@ sub MY::postamble
 
 config::	README
 
-README: Base.pod
-	pod2text Base.pod > README
+README: Base.pm
+	pod2text Base.pm > README
 
 install::
 	[ -d $homedir ] || mkdir $homedir && chmod 755 $homedir
