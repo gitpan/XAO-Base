@@ -28,6 +28,7 @@ use XAO::Errors qw(XAO::Utils);
 sub generate_key (;$);
 sub repair_key ($);
 sub set_debug ($);
+sub get_debug ();
 sub dprint (@);
 sub eprint (@);
 sub t2ht ($);
@@ -38,7 +39,7 @@ sub merge_refs (@);
 sub fround ($$);
 
 use vars qw($VERSION);
-($VERSION)=(q$Id: Utils.pm,v 1.11 2003/09/03 06:31:45 am Exp $ =~ /(\d+\.\d+)/);
+($VERSION)=(q$Id: Utils.pm,v 1.14 2004/11/06 00:40:12 am Exp $ =~ /(\d+\.\d+)/);
 
 ###############################################################################
 # Export control
@@ -186,16 +187,17 @@ Here is the list of functions available:
 
 ###############################################################################
 
-my $debug_flag=0;
+use vars qw($debug_flag $logprint_handler);
 
 ###############################################################################
 
 =item dprint (@)
 
-Prints all arguments just like normal "print" does but 1) it prints them
-to STDERR and 2) only if you called set_debug(1) somewhere above. Useful
-for printing various debug messages and then looking at them in
-S<"tail -f apache/logs/error_log">.
+Prints all arguments just like normal "print" does but 1) it prints
+them to STDERR or uses the handler provided by set_logprint_handler()
+and 2) only if you called set_debug(1) somewhere above. Useful for
+printing various debug messages and then looking at them in S<"tail -f
+apache/logs/error_log">.
 
 Once you debugged your program you just turn off set_debug() somewhere at
 the top and all output goes away.
@@ -215,22 +217,78 @@ sub dprint (@) {
     return unless $debug_flag;
     my $str=join("",map { defined($_) ? $_ : "<UNDEF>" } @_);
     chomp $str;
-    print STDERR $str,"\n";
+    logprint($str);
 }
 
 ###############################################################################
 
 =item eprint (@)
 
-Prints all arguments to STDERR like dprint() does but
-unconditionally. Great for reporting minor problems to the server log.
+Prints all arguments to STDERR or using the handler provided by
+set_logprint_handler() like dprint() does but unconditionally. Great for
+reporting minor problems to the server log.
 
 =cut
 
 sub eprint (@) {
     my $str=join("",map { defined($_) ? $_ : "<UNDEF>" } @_);
     chomp $str;
-    print STDERR "*ERROR: ",$str,"\n";
+    logprint("*ERROR: ",$str);
+}
+
+###############################################################################
+
+sub logprint (@) {
+    if($logprint_handler) {
+        &{$logprint_handler}(join('',@_));
+    }
+    else {
+        print STDERR @_,"\n";
+    }
+}
+
+###############################################################################
+
+=item set_logprint_handler ($)
+
+Installs a handler to be used by eprint() and dprint(). Useful when
+STDERR is not available or should not be used.
+
+Example:
+
+ my $s=Apache->request->server;
+ XAO::Utils::set_logprint_handler(sub { $s->log_error($_[0] });
+ dprint "Using Apache error logging";
+
+=cut
+
+sub set_logprint_handler ($) {
+    my $newh=shift;
+    my $oldh=$logprint_handler;
+    if($newh) {
+        if(ref($newh) eq 'CODE') {
+            $logprint_handler=$newh;
+        }
+        else {
+            eprint "set_logprint_handler - bad handler '$newh', expected code reference";
+        }
+    }
+    else {
+        $logprint_handler=undef;
+    }
+    return $oldh;
+}
+
+###############################################################################
+
+=item get_debug ($)
+
+Returns boolean value of the current state of the debug flag.
+
+=cut
+
+sub get_debug () {
+    return $debug_flag;
 }
 
 ###############################################################################
@@ -250,7 +308,9 @@ Example:
 =cut
 
 sub set_debug ($) {
+    my $old_flag=$debug_flag;
     $debug_flag=$_[0];
+    return $old_flag;
 }
 
 ###############################################################################
